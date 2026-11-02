@@ -18,7 +18,7 @@ async function api(method, url, body, isForm) {
     else { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
   }
   const res = await fetch(url, opts);
-  if (res.status === 401 && url !== '/api/login') { showLogin(); throw new Error('Please log in'); }
+  if (res.status === 401 && url !== 'api/login') { showLogin(); throw new Error('Please log in'); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
   return data;
@@ -71,7 +71,8 @@ function scheduleText(tk) {
 async function showLogin() {
   $('#shell').classList.add('hidden');
   $('#login').classList.remove('hidden');
-  const users = await fetch('/api/login-users').then(r => r.json()).catch(() => []);
+  let users = await fetch('api/login-users').then(r => r.json()).catch(() => []);
+  if (!Array.isArray(users)) users = [];
   const sel = $('#loginName');
   sel.innerHTML = '<option value="">Select your name</option>' +
     users.map(u => `<option value="${esc(u.username)}" data-pwd="${u.needsPassword ? 1 : 0}">${esc(u.name)}</option>`).join('');
@@ -88,13 +89,13 @@ $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = new FormData(e.target);
   try {
-    await api('POST', '/api/login', { username: f.get('username'), password: f.get('password') });
+    await api('POST', 'api/login', { username: f.get('username'), password: f.get('password') });
     $('#loginErr').textContent = '';
     start();
   } catch (err) { $('#loginErr').textContent = err.message; }
 });
 
-$('#logoutBtn').addEventListener('click', async () => { await api('POST', '/api/logout').catch(() => {}); location.hash = ''; showLogin(); });
+$('#logoutBtn').addEventListener('click', async () => { await api('POST', 'api/logout').catch(() => {}); location.hash = ''; showLogin(); });
 $('#pwdBtn').addEventListener('click', () => passwordDialog(false));
 
 function passwordDialog(forced) {
@@ -104,7 +105,7 @@ function passwordDialog(forced) {
     <div class="row"><button class="btn primary" id="pwSave">Save</button>${forced ? '' : '<button class="btn" onclick="closeModal()">Cancel</button>'}</div>`);
   $('#pwSave').onclick = async () => {
     try {
-      await api('POST', '/api/change-password', { current: $('#pwCur').value, next: $('#pwNew').value });
+      await api('POST', 'api/change-password', { current: $('#pwCur').value, next: $('#pwNew').value });
       closeModal(); toast('Password changed');
     } catch (err) { fail(err); }
   };
@@ -112,8 +113,8 @@ function passwordDialog(forced) {
 
 async function start() {
   try {
-    S.me = await api('GET', '/api/me');
-    S.meta = await api('GET', '/api/meta');
+    S.me = await api('GET', 'api/me');
+    S.meta = await api('GET', 'api/meta');
   } catch { return showLogin(); }
   $('#login').classList.add('hidden');
   $('#shell').classList.remove('hidden');
@@ -136,7 +137,7 @@ function buildNav() {
 }
 
 async function refreshBadge() {
-  const list = await api('GET', '/api/approvals').catch(() => []);
+  const list = await api('GET', 'api/approvals').catch(() => []);
   const b = $('#apprBadge');
   if (!b) return;
   b.textContent = list.length;
@@ -200,7 +201,7 @@ async function viewDashboard() {
 
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   let d;
-  try { d = await api('GET', '/api/dashboard?' + qs); } catch (err) { return fail(err); }
+  try { d = await api('GET', 'api/dashboard?' + qs); } catch (err) { return fail(err); }
   const k = d.kpi;
   const table = (title, rows, keyCol, keyLabel, onClickKey) => `
     <div class="card"><h3>${title}</h3><div class="table-wrap"><table>
@@ -270,7 +271,7 @@ async function viewTasks() {
   $('#tSearch').oninput = e => { st.search = e.target.value; renderTaskList(); };
 
   const qs = new URLSearchParams({ scope: st.scope, ...(st.doer && { doer: st.doer }), ...(st.company && { company: st.company }) });
-  try { S.cache.tasks = await api('GET', '/api/my-tasks?' + qs); } catch (err) { return fail(err); }
+  try { S.cache.tasks = await api('GET', 'api/my-tasks?' + qs); } catch (err) { return fail(err); }
   renderTaskList();
 }
 
@@ -310,7 +311,7 @@ function renderTaskList() {
   bulk.onclick = async () => {
     const ids = [...document.querySelectorAll('.chk:checked')].map(c => Number(c.value));
     try {
-      const r = await api('POST', '/api/instances/bulk-done', { ids });
+      const r = await api('POST', 'api/instances/bulk-done', { ids });
       toast(`${r.done} task(s) marked done`); viewTasks();
     } catch (err) { fail(err); }
   };
@@ -319,7 +320,7 @@ function renderTaskList() {
 // ---------------- single task (upload / submit / approve) ----------------
 async function openTask(id) {
   let d;
-  try { d = await api('GET', '/api/instances/' + id); } catch (err) { return fail(err); }
+  try { d = await api('GET', 'api/instances/' + id); } catch (err) { return fail(err); }
   const editable = d.canWork && ['pending', 'rejected'].includes(d.status);
   const state = d.status === 'rejected' ? 'rejected' : d.state;
   openModal(`
@@ -355,7 +356,7 @@ async function openTask(id) {
         fd.append('file', file);
         try {
           toast('Uploading ' + file.name + '...');
-          await api('POST', `/api/instances/${id}/upload`, fd, true);
+          await api('POST', `api/instances/${id}/upload`, fd, true);
         } catch (err) { fail(err); }
       }
       openTask(id);
@@ -368,20 +369,20 @@ async function openTask(id) {
         fields[box.dataset.att] = { ...JSON.parse(box.dataset.extra || '{}'), ...f };
       });
       try {
-        const r = await api('POST', `/api/instances/${id}/submit`, { remarks: $('#remarks').value, fields });
+        const r = await api('POST', `api/instances/${id}/submit`, { remarks: $('#remarks').value, fields });
         toast(r.status === 'done' ? 'Marked done' : 'Sent for approval');
         closeModal(); route();
       } catch (err) { fail(err); }
     };
     document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
       if (!confirm('Remove this attachment?')) return;
-      try { await api('DELETE', '/api/attachments/' + b.dataset.del); openTask(id); } catch (err) { fail(err); }
+      try { await api('DELETE', 'api/attachments/' + b.dataset.del); openTask(id); } catch (err) { fail(err); }
     });
   }
   if ($('#apprBtn')) $('#apprBtn').onclick = () => reviewAct(id, true);
   if ($('#rejBtn')) $('#rejBtn').onclick = () => reviewAct(id, false);
   $('#cmtBtn').onclick = async () => {
-    try { await api('POST', `/api/instances/${id}/comments`, { text: $('#cmt').value }); openTask(id); } catch (err) { fail(err); }
+    try { await api('POST', `api/instances/${id}/comments`, { text: $('#cmt').value }); openTask(id); } catch (err) { fail(err); }
   };
 }
 
@@ -390,7 +391,7 @@ function attBlock(a, editable) {
   const ex = a.extracted || {};
   const extra = { textFound: ex.textFound, note: ex.note, warning: ex.warning };
   return `<div class="att" data-att="${a.id}" data-extra='${esc(JSON.stringify(extra))}'>
-    <div class="row"><a href="/files/${a.id}" target="_blank">📎 ${esc(a.original_name)}</a>
+    <div class="row"><a href="files/${a.id}" target="_blank">📎 ${esc(a.original_name)}</a>
       <span class="muted">${esc(a.uploaded_at || '')}</span>
       ${editable ? `<button class="btn small right" data-del="${a.id}">Remove</button>` : ''}</div>
     ${ex.warning ? `<div class="warn">⚠ ${esc(ex.warning)}</div>` : ''}
@@ -402,7 +403,7 @@ function attBlock(a, editable) {
 async function reviewAct(id, approve) {
   const note = $('#revNote') ? $('#revNote').value : '';
   try {
-    await api('POST', `/api/instances/${id}/${approve ? 'approve' : 'reject'}`, { note });
+    await api('POST', `api/instances/${id}/${approve ? 'approve' : 'reject'}`, { note });
     toast(approve ? 'Approved' : 'Sent back');
     closeModal(); route(); refreshBadge();
   } catch (err) { fail(err); }
@@ -412,7 +413,7 @@ async function reviewAct(id, approve) {
 async function viewApprovals() {
   $('#view').innerHTML = '<div class="card muted">Loading...</div>';
   let rows;
-  try { rows = await api('GET', '/api/approvals'); } catch (err) { return fail(err); }
+  try { rows = await api('GET', 'api/approvals'); } catch (err) { return fail(err); }
   refreshBadge();
   $('#view').innerHTML = `<div class="card">
     <div class="row"><h2>Awaiting your approval (${rows.length})</h2>
@@ -428,7 +429,7 @@ async function viewApprovals() {
         <td>${esc(f.referenceNo || '')} <span class="muted">${esc(f.referenceLabel || '')}</span></td><td class="num">${fmtAmt(f.amount)}</td>
         <td>${esc(f.period || '')}</td>
         <td><div class="row"><button class="btn small" data-open="${r.id}">Open</button>
-          ${r.attachments.map(a => `<a href="/files/${a.id}" target="_blank" title="${esc(a.original_name)}">📎</a>`).join(' ')}</div></td></tr>`;
+          ${r.attachments.map(a => `<a href="files/${a.id}" target="_blank" title="${esc(a.original_name)}">📎</a>`).join(' ')}</div></td></tr>`;
       }).join('') || '<tr><td colspan="10" class="muted">Nothing waiting. 👍</td></tr>'}
     </table></div></div>`;
   const sync = () => { $('#bulkAppr').disabled = !document.querySelectorAll('.achk:checked').length; };
@@ -437,7 +438,7 @@ async function viewApprovals() {
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openTask(b.dataset.open));
   $('#bulkAppr').onclick = async () => {
     const ids = [...document.querySelectorAll('.achk:checked')].map(c => Number(c.value));
-    try { const r = await api('POST', '/api/approvals/bulk-approve', { ids }); toast(`${r.count} approved`); viewApprovals(); } catch (err) { fail(err); }
+    try { const r = await api('POST', 'api/approvals/bulk-approve', { ids }); toast(`${r.count} approved`); viewApprovals(); } catch (err) { fail(err); }
   };
 }
 
@@ -450,7 +451,7 @@ async function viewMatrix() {
   if (!S.matrixMonth) S.matrixMonth = today().slice(0, 7);
   $('#view').innerHTML = '<div class="card muted">Loading...</div>';
   let d;
-  try { d = await api('GET', '/api/matrix?month=' + S.matrixMonth); } catch (err) { return fail(err); }
+  try { d = await api('GET', 'api/matrix?month=' + S.matrixMonth); } catch (err) { return fail(err); }
   $('#view').innerHTML = `<div class="card">
     <div class="row"><h2>Compliance Matrix</h2><label class="right">Month <input type="month" id="mMonth" value="${S.matrixMonth}"></label></div>
     <div class="legend">
@@ -476,7 +477,7 @@ async function viewMatrix() {
       closeModal(); location.hash = '#dashboard';
     };
     $('#mToggle').onclick = async () => {
-      try { await api('POST', '/api/matrix/applicability', { company: co, category: cat, applicable: app !== '1' }); closeModal(); viewMatrix(); } catch (err) { fail(err); }
+      try { await api('POST', 'api/matrix/applicability', { company: co, category: cat, applicable: app !== '1' }); closeModal(); viewMatrix(); } catch (err) { fail(err); }
     };
   });
 }
@@ -494,7 +495,7 @@ async function viewRegister() {
       <label>Company<select id="rCompany">${options(S.meta.companies, f.company)}</select></label>
       <label>Category<select id="rCategory">${options(S.meta.categories, f.category)}</select></label>
       ${isAdmin() || S.me.team.length ? `<label>Person<select id="rDoer">${options(isAdmin() ? S.meta.people : [S.me.name, ...S.me.team], f.doer)}</select></label>` : ''}
-      <a class="btn primary right" href="/api/register.csv?${qs}">Download Excel (CSV)</a>
+      <a class="btn primary right" href="api/register.csv?${qs}">Download Excel (CSV)</a>
     </div><div class="table-wrap" id="rList"><p class="muted">Loading...</p></div></div>`;
   const set = (k, v) => { f[k] = v; viewRegister(); };
   $('#rFrom').onchange = e => set('from', e.target.value);
@@ -503,7 +504,7 @@ async function viewRegister() {
   $('#rCategory').onchange = e => set('category', e.target.value);
   if ($('#rDoer')) $('#rDoer').onchange = e => set('doer', e.target.value);
   let rows;
-  try { rows = await api('GET', '/api/register?' + qs); } catch (err) { return fail(err); }
+  try { rows = await api('GET', 'api/register?' + qs); } catch (err) { return fail(err); }
   $('#rList').innerHTML = `<p class="muted">${rows.length} document(s). Details are read from the uploaded PDF and confirmed by the doer.</p><table>
     <tr><th>Due</th><th>Company</th><th>Category</th><th>Task</th><th>Doer</th><th>Document</th><th>Reference No</th>
     <th class="num">Amount</th><th>Doc date</th><th>Period</th><th>GSTIN / PAN / TAN</th><th>Status</th><th>File</th></tr>
@@ -512,7 +513,7 @@ async function viewRegister() {
       <td>${esc(x.referenceNo || '')} <span class="muted">${esc(x.referenceLabel || '')}</span></td><td class="num">${fmtAmt(x.amount)}</td>
       <td>${esc(x.date || '')}</td><td>${esc(x.period || x.financialYear || x.assessmentYear || '')}</td>
       <td class="muted">${esc([x.gstin, x.pan, x.tan].filter(Boolean).join(' '))}</td><td>${esc(r.status)}</td>
-      <td onclick="event.stopPropagation()"><a href="/files/${r.id}" target="_blank">📎</a></td></tr>`; }).join('') || '<tr><td colspan="13" class="muted">No attachments in this period</td></tr>'}
+      <td onclick="event.stopPropagation()"><a href="files/${r.id}" target="_blank">📎</a></td></tr>`; }).join('') || '<tr><td colspan="13" class="muted">No attachments in this period</td></tr>'}
   </table>`;
   document.querySelectorAll('#rList [data-inst]').forEach(tr => tr.onclick = () => openTask(tr.dataset.inst));
 }
@@ -530,7 +531,7 @@ async function viewMaster() {
         In Excel use File → Save As → CSV.</p>
         <div class="row"><input type="file" id="impFile" accept=".csv">
           <label class="muted"><input type="checkbox" id="impReplace"> File is the full master (remove tasks not in file)</label></div>
-        <div class="row" style="margin-top:8px"><button class="btn primary" id="impBtn">Import</button><a class="btn" href="/api/tasks/export.csv?${qs}">Export filtered tasks for import</a></div>
+        <div class="row" style="margin-top:8px"><button class="btn primary" id="impBtn">Import</button><a class="btn" href="api/tasks/export.csv?${qs}">Export filtered tasks for import</a></div>
         <pre id="impOut" class="muted" style="white-space:pre-wrap"></pre>
         <hr><div class="row"><label class="muted">Go-live date (tasks are tracked from this date)
           <input type="date" id="goLive" value="${S.meta.goLiveDate}"></label><button class="btn" id="goLiveBtn">Save</button></div>
@@ -580,27 +581,27 @@ async function viewMaster() {
     fd.append('replaceAll', $('#impReplace').checked ? 'true' : 'false');
     $('#impOut').textContent = 'Importing...';
     try {
-      const r = await api('POST', '/api/import', fd, true);
+      const r = await api('POST', 'api/import', fd, true);
       $('#impOut').textContent = `Added: ${r.added}  Updated: ${r.updated}  Deleted: ${r.deleted}  Removed (not in file): ${r.deactivated}  Skipped: ${r.skipped}\nTask dates created: ${r.instancesCreated}` + (r.errors.length ? '\n' + r.errors.slice(0, 20).join('\n') : '');
-      S.meta = await api('GET', '/api/meta');
+      S.meta = await api('GET', 'api/meta');
       setTimeout(viewMaster, 1500);
     } catch (err) { $('#impOut').textContent = err.message; }
   };
   $('#goLiveBtn').onclick = async () => {
-    try { await api('POST', '/api/settings', { go_live_date: $('#goLive').value }); S.meta = await api('GET', '/api/meta'); toast('Saved'); } catch (err) { fail(err); }
+    try { await api('POST', 'api/settings', { go_live_date: $('#goLive').value }); S.meta = await api('GET', 'api/meta'); toast('Saved'); } catch (err) { fail(err); }
   };
   $('#ahBtn').onclick = async () => {
     const body = { doer: $('#ahDoer').value, due_date: $('#ahDue').value, company: $('#ahCo').value, cost_centre: $('#ahCc').value,
       category: $('#ahCat').value, description: $('#ahDesc').value };
     if ($('#ahAppr').value !== '') body.approval_required = $('#ahAppr').value === '1';
-    try { await api('POST', '/api/adhoc', body); toast('Task assigned'); $('#ahDesc').value = ''; } catch (err) { fail(err); }
+    try { await api('POST', 'api/adhoc', body); toast('Task assigned'); $('#ahDesc').value = ''; } catch (err) { fail(err); }
   };
 
   let tasks;
-  try { tasks = await api('GET', '/api/tasks?' + qs); } catch (err) { return fail(err); }
+  try { tasks = await api('GET', 'api/tasks?' + qs); } catch (err) { return fail(err); }
   const bulkAppr = async on => {
     if (!confirm(`${on ? 'Set' : 'Remove'} approval for ${tasks.length} task(s)?`)) return;
-    try { await api('POST', '/api/tasks/bulk', { ids: tasks.map(x => x.id), approval_required: on }); viewMaster(); } catch (err) { fail(err); }
+    try { await api('POST', 'api/tasks/bulk', { ids: tasks.map(x => x.id), approval_required: on }); viewMaster(); } catch (err) { fail(err); }
   };
   $('#mApprAll').onclick = () => bulkAppr(true);
   $('#mApprNone').onclick = () => bulkAppr(false);
@@ -614,7 +615,7 @@ async function viewMaster() {
       <td><input type="checkbox" data-appr="${tk.id}" ${tk.approval_required ? 'checked' : ''}></td>
       <td><input type="checkbox" data-act="${tk.id}" ${tk.active ? 'checked' : ''}></td></tr>`).join('')}
   </table>`;
-  const patch = (id, body) => api('PATCH', '/api/tasks/' + id, body).then(() => toast('Saved')).catch(fail);
+  const patch = (id, body) => api('PATCH', 'api/tasks/' + id, body).then(() => toast('Saved')).catch(fail);
   document.querySelectorAll('[data-cat]').forEach(s => s.onchange = () => patch(s.dataset.cat, { category: s.value }));
   document.querySelectorAll('[data-appr]').forEach(c => c.onchange = () => patch(c.dataset.appr, { approval_required: c.checked }));
   document.querySelectorAll('[data-act]').forEach(c => c.onchange = () => {
@@ -626,7 +627,7 @@ async function viewMaster() {
 // ---------------- users ----------------
 async function viewUsers() {
   let users;
-  try { users = await api('GET', '/api/users'); } catch (err) { return fail(err); }
+  try { users = await api('GET', 'api/users'); } catch (err) { return fail(err); }
   $('#view').innerHTML = `<div class="card">
     <div class="row"><h2>Users (${users.length})</h2>
       <input id="nuName" placeholder="New person's full name" class="right"><button class="btn" id="nuBtn">Add user</button>
@@ -642,16 +643,16 @@ async function viewUsers() {
         <td><input type="checkbox" data-uact="${u.id}" ${u.active ? 'checked' : ''}></td>
         <td>${u.role === 'admin' ? `<button class="btn small" data-reset="${u.id}">Reset password</button>` : ''}</td></tr>`).join('')}
     </table></div></div>`;
-  const patch = (id, body, msg = 'Saved') => api('PATCH', '/api/users/' + id, body).then(() => toast(msg)).catch(fail);
+  const patch = (id, body, msg = 'Saved') => api('PATCH', 'api/users/' + id, body).then(() => toast(msg)).catch(fail);
   document.querySelectorAll('[data-role]').forEach(s => s.onchange = () => patch(s.dataset.role, { role: s.value }));
   document.querySelectorAll('[data-email]').forEach(i => i.onchange = () => patch(i.dataset.email, { email: i.value }));
   document.querySelectorAll('[data-uact]').forEach(c => c.onchange = () => patch(c.dataset.uact, { active: c.checked }));
   document.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => confirm('Reset to the default password?') && patch(b.dataset.reset, { resetPassword: true }, 'Password reset to default'));
   $('#nuBtn').onclick = async () => {
-    try { await api('POST', '/api/users', { name: $('#nuName').value }); S.meta = await api('GET', '/api/meta'); viewUsers(); } catch (err) { fail(err); }
+    try { await api('POST', 'api/users', { name: $('#nuName').value }); S.meta = await api('GET', 'api/meta'); viewUsers(); } catch (err) { fail(err); }
   };
   $('#digestBtn').onclick = async () => {
-    try { const r = await api('POST', '/api/digest/send-now'); toast(r.reason || `Sent ${r.sent} e-mail(s)`); } catch (err) { fail(err); }
+    try { const r = await api('POST', 'api/digest/send-now'); toast(r.reason || `Sent ${r.sent} e-mail(s)`); } catch (err) { fail(err); }
   };
 }
 
