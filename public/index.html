@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alcove Accounts Workflow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="login" class="login hidden">
+    <form id="loginForm" class="card login-card">
+      <h1>Alcove <span>Accounts Workflow</span></h1>
+      <label>Username<input name="username" autocomplete="username" placeholder="e.g. niraj.goel" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">Login</button>
+      <p class="err" id="loginErr"></p>
+    </form>
+  </div>
+
+  <div id="shell" class="hidden">
+    <header class="topbar">
+      <div class="brand">Alcove <span>Accounts Workflow</span></div>
+      <nav id="nav"></nav>
+      <div class="user"><span id="userName"></span>
+        <button class="btn small ghost" id="pwdBtn">Password</button>
+        <button class="btn small ghost" id="logoutBtn">Logout</button>
+      </div>
+    </header>
+    <main id="view"></main>
+  </div>
+
+  <div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

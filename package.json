@@ -1,0 +1,20 @@
+{
+  "name": "alcove-workflow",
+  "version": "1.0.0",
+  "description": "Alcove Accounts Department - Task Checklist, Approval & Compliance Dashboard",
+  "main": "server.js",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "import": "node scripts/import-csv.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "multer": "2.5.0",
+    "nodemailer": "10.3.1",
+    "pdf-parse": "1.1.4"
+  }
+}

@@ -1,0 +1,11 @@
+# Add this block to the existing Caddyfile (usually /etc/caddy/Caddyfile), next to the
+# employees.alcoverealty.in block. Do not change the existing block.
+# Caddy will get the HTTPS certificate automatically once the DNS record points here.
+
+workflow.alcoverealty.in {
+	encode gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy 127.0.0.1:3100
+}

@@ -1,0 +1,8 @@
+node_modules/
+# Live data: database, uploaded challans, backups
+data/
+# Secrets / server-specific settings
+.env
+# Company checklist with internal names - import it from the Task Master screen instead
+deploy/checklist.csv
+*.log

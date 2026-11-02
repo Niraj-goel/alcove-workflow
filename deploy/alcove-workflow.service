@@ -1,0 +1,20 @@
+[Unit]
+Description=Alcove Accounts Workflow Portal
+After=network.target
+
+[Service]
+Type=simple
+User=alcoveflow
+WorkingDirectory=/opt/alcove-workflow
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+# Basic hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/alcove-workflow/data
+
+[Install]
+WantedBy=multi-user.target
