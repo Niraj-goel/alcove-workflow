@@ -102,7 +102,9 @@ app.post('/api/login', (req, res) => {
   if (loginLocked(lockKey)) return res.status(429).json({ error: 'Too many wrong attempts. Try again after 15 minutes.' });
   const user = db.prepare('SELECT * FROM users WHERE (username = ? OR lower(name) = lower(?)) AND active = 1')
     .get(username.trim().toLowerCase(), username.trim());
-  if (!user || !auth.verifyPassword(password, user.pass_hash)) {
+  // Team members log in by name only; admins still need their password.
+  const passwordOk = user && (user.role !== 'admin' || auth.verifyPassword(password, user.pass_hash));
+  if (!passwordOk) {
     noteFailedLogin(lockKey);
     return res.status(401).json({ error: 'Wrong username or password' });
   }
@@ -112,18 +114,24 @@ app.post('/api/login', (req, res) => {
   res.json({ ok: true });
 });
 
+// Names shown on the login screen (team members pick their name; admins also type a password).
+app.get('/api/login-users', (req, res) => {
+  res.json(db.prepare('SELECT name, username, role FROM users WHERE active = 1 ORDER BY name').all()
+    .map(u => ({ name: u.name, username: u.username, needsPassword: u.role === 'admin' })));
+});
+
 app.post('/api/logout', (req, res) => {
   db.prepare('DELETE FROM sessions WHERE token = ?').run(auth.readCookie(req, auth.COOKIE));
   res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
   res.json({ ok: true });
 });
 
-app.use('/api', (req, res, next) => (req.path === '/login' ? next() : auth.requireLogin(req, res, next)));
+app.use('/api', (req, res, next) => (['/login', '/login-users'].includes(req.path) ? next() : auth.requireLogin(req, res, next)));
 app.use('/files', auth.requireLogin);
 
 app.get('/api/me', (req, res) => {
   const u = req.user;
-  res.json({ id: u.id, name: u.name, username: u.username, role: u.role, email: u.email, mustChange: !!u.must_change, team: teamOf(u) });
+  res.json({ id: u.id, name: u.name, username: u.username, role: u.role, email: u.email, team: teamOf(u) });
 });
 
 app.post('/api/change-password', (req, res) => {
@@ -474,6 +482,11 @@ function bootstrap() {
   if (!db.prepare("SELECT 1 FROM users WHERE role = 'admin'").get()) {
     for (const name of config.ADMIN_NAMES) ensureUser(name);
     db.prepare(`UPDATE users SET role = 'admin' WHERE name IN (${config.ADMIN_NAMES.map(() => '?').join(',')})`).run(...config.ADMIN_NAMES);
+  }
+  // Admins who never set their own password get the current default (e.g. after the default was changed).
+  const resetAdmin = db.prepare('UPDATE users SET pass_hash = ? WHERE id = ?');
+  for (const a of db.prepare("SELECT id FROM users WHERE role = 'admin' AND must_change = 1").all()) {
+    resetAdmin.run(auth.hashPassword(config.DEFAULT_PASSWORD), a.id);
   }
   goLiveDate();
   const n = generateInstances();

@@ -68,7 +68,21 @@ function scheduleText(tk) {
 }
 
 // ---------------- login / shell ----------------
-function showLogin() { $('#shell').classList.add('hidden'); $('#login').classList.remove('hidden'); }
+async function showLogin() {
+  $('#shell').classList.add('hidden');
+  $('#login').classList.remove('hidden');
+  const users = await fetch('/api/login-users').then(r => r.json()).catch(() => []);
+  const sel = $('#loginName');
+  sel.innerHTML = '<option value="">Select your name</option>' +
+    users.map(u => `<option value="${esc(u.username)}" data-pwd="${u.needsPassword ? 1 : 0}">${esc(u.name)}</option>`).join('');
+  const syncPwd = () => {
+    const needs = sel.selectedOptions[0]?.dataset.pwd === '1';
+    $('#loginPwdRow').classList.toggle('hidden', !needs);
+    $('#loginPwdRow input').required = needs;
+  };
+  sel.onchange = syncPwd;
+  syncPwd();
+}
 
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -105,9 +119,9 @@ async function start() {
   $('#shell').classList.remove('hidden');
   $('#userName').textContent = `${S.me.name}${S.me.role === 'admin' ? ' (Admin)' : ''}`;
   buildNav();
+  $('#pwdBtn').classList.toggle('hidden', S.me.role !== 'admin');
   if (!location.hash) location.hash = S.me.role === 'admin' ? '#dashboard' : '#tasks';
   route();
-  if (S.me.mustChange) passwordDialog(true);
 }
 
 const isAdmin = () => S.me?.role === 'admin';
@@ -617,16 +631,16 @@ async function viewUsers() {
     <div class="row"><h2>Users (${users.length})</h2>
       <input id="nuName" placeholder="New person's full name" class="right"><button class="btn" id="nuBtn">Add user</button>
       <button class="btn" id="digestBtn">Send e-mail digest now</button></div>
-    <p class="muted">Users are created automatically from the checklist. Login = username below, first password = default password (asked to change on first login).
-    Add e-mail IDs to send daily reminders.</p>
+    <p class="muted">Users are created automatically from the checklist. Team members log in by picking their name (no password);
+    admins also need their password. Add e-mail IDs to send daily reminders.</p>
     <div class="table-wrap"><table>
       <tr><th>Name</th><th>Username</th><th>Reporting to</th><th>Role</th><th>E-mail</th><th>Active</th><th></th></tr>
-      ${users.map(u => `<tr><td>${esc(u.name)}</td><td><code>${esc(u.username)}</code>${u.must_change ? ' <span class="muted">(default pwd)</span>' : ''}</td>
+      ${users.map(u => `<tr><td>${esc(u.name)}</td><td><code>${esc(u.username)}</code>${u.role === 'admin' && u.must_change ? ' <span class="muted">(default pwd)</span>' : ''}</td>
         <td class="muted">${esc(u.reporting_to)}</td>
         <td><select data-role="${u.id}"><option ${u.role === 'member' ? 'selected' : ''}>member</option><option ${u.role === 'admin' ? 'selected' : ''}>admin</option></select></td>
         <td><input data-email="${u.id}" value="${esc(u.email)}" placeholder="name@alcoverealty.in"></td>
         <td><input type="checkbox" data-uact="${u.id}" ${u.active ? 'checked' : ''}></td>
-        <td><button class="btn small" data-reset="${u.id}">Reset password</button></td></tr>`).join('')}
+        <td>${u.role === 'admin' ? `<button class="btn small" data-reset="${u.id}">Reset password</button>` : ''}</td></tr>`).join('')}
     </table></div></div>`;
   const patch = (id, body, msg = 'Saved') => api('PATCH', '/api/users/' + id, body).then(() => toast(msg)).catch(fail);
   document.querySelectorAll('[data-role]').forEach(s => s.onchange = () => patch(s.dataset.role, { role: s.value }));

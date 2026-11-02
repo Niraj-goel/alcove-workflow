@@ -10,8 +10,8 @@
   <div id="login" class="login hidden">
     <form id="loginForm" class="card login-card">
       <h1>Alcove <span>Accounts Workflow</span></h1>
-      <label>Username<input name="username" autocomplete="username" placeholder="e.g. niraj.goel" required></label>
-      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <label>Your name<select name="username" id="loginName" required><option value="">Select your name</option></select></label>
+      <label id="loginPwdRow" class="hidden">Password<input name="password" type="password" autocomplete="current-password"></label>
       <button class="btn primary" type="submit">Login</button>
       <p class="err" id="loginErr"></p>
     </form>

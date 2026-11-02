@@ -30,7 +30,8 @@ Challan या Acknowledgement की PDF upload होते ही उसक�
 ### Login
 - Checklist में जितने Doer और Reporting heads हैं, सबका user अपने-आप बन जाता है।
 - **Username** पूरा नाम छोटे अक्षरों में, बीच में dot के साथ होता है, जैसे `niraj.goel`, `atriz.roy`, `kishore.kr.daga`। Users screen पर पूरी list है।
-- **पहला password** `Alcove@123` है। पहली बार login करने पर हर user से नया password बनवाया जाता है।
+- **Team members:** login screen पर अपना नाम चुनें, password नहीं लगता।
+- **Admin (Niraj Goel):** password `123456$$`, जिसे "Password" button से बदला जा सकता है।
 - `Niraj Goel` = Admin।
 
 ---
@@ -39,7 +40,7 @@ Challan या Acknowledgement की PDF upload होते ही उसक�
 
 1. Node.js **22 LTS या नया** install करें: https://nodejs.org
 2. `start.bat` पर double-click करें। यह packages install करेगा, Downloads से checklist import करेगा और browser खोल देगा: http://localhost:3000
-3. `niraj.goel` / `Alcove@123` से login करें।
+3. "Niraj Goel" चुनें और password `123456$$` से login करें।
 
 Command line से:
 ```
@@ -58,7 +59,7 @@ npm start
 2. Upload this folder (without `node_modules` and `data`) to the server and run `sudo bash deploy/install.sh`.
    It installs Node.js, creates the `alcoveflow` service user, imports `deploy/checklist.csv`, starts the systemd service on `127.0.0.1:3100` and schedules the 11 PM backup.
 3. Append `deploy/Caddyfile.snippet` to `/etc/caddy/Caddyfile` and run `sudo systemctl reload caddy`. HTTPS is issued automatically.
-4. Open https://workflow.alcoverealty.in, log in as `niraj.goel` / `Alcove@123` and change the password.
+4. Open https://workflow.alcoverealty.in, pick "Niraj Goel" and log in with `123456$$`.
 
 Updates later: upload the new code and run `sudo bash deploy/install.sh` again (data and `.env` are kept).
 
